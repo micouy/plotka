@@ -1,0 +1,5 @@
+imports_layout = "HorizontalVertical"
+max_width = 80
+normalize_comments = true
+match_arm_blocks = false
+wrap_comments = true
