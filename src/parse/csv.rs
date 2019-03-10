@@ -2,9 +2,10 @@ use csv::ReaderBuilder;
 
 use std::io::prelude::*;
 
-use super::{Opts, ParserCreationError, Record};
+use super::{ParserCreationError, Record};
 
-pub fn generate_csv_parser<R>(
+/// Create a CSV parser from a reader, headers and a delimiter.
+pub fn create_csv_parser<R>(
     reader: R,
     mb_headers: Option<Vec<String>>,
     mb_delimiter: Option<u8>,
@@ -12,6 +13,7 @@ pub fn generate_csv_parser<R>(
 where
     R: Read,
 {
+    // Build a CSV reader.
     let mut csv_reader = ReaderBuilder::new()
         .delimiter(mb_delimiter.unwrap_or(b','))
         .has_headers(match mb_headers {
@@ -20,6 +22,8 @@ where
         })
         .from_reader(reader);
 
+    // Try to get headers from the `mb_headers` arg, then from the file.
+    // If there are none specified, return an error.
     let headers = mb_headers
         .or_else(|| {
             csv_reader
@@ -31,6 +35,7 @@ where
         })
         .ok_or_else(|| ParserCreationError::NoCsvHeaders)?;
 
+    // Create the actual parser - an iterator yielding `Record`s from each line of input.
     let parser = {
         let headers = headers.clone();
 
@@ -64,7 +69,7 @@ mod test {
         let contents = "a,b\n1,2\n11,12\n";
         let reader = BufReader::new(contents.as_bytes());
 
-        let (mut parser, headers) = generate_csv_parser(reader, headers, delimiter).unwrap();
+        let (mut parser, headers) = create_csv_parser(reader, headers, delimiter).unwrap();
 
         assert_eq!(headers, vec!["a", "b"]);
 
@@ -89,7 +94,7 @@ mod test {
         let contents = "1,2\n11,12\n";
         let reader = BufReader::new(contents.as_bytes());
 
-        let (mut parser, headers) = generate_csv_parser(reader, headers, delimiter).unwrap();
+        let (mut parser, headers) = create_csv_parser(reader, headers, delimiter).unwrap();
 
         assert_eq!(headers, vec!["a", "b"]);
 
@@ -115,7 +120,7 @@ mod test {
         let contents = "h,i\nj,k\nl,m\n";
         let reader = BufReader::new(contents.as_bytes());
 
-        let (mut parser, _headers) = generate_csv_parser(reader, headers, delimiter).unwrap();
+        let (mut parser, _headers) = create_csv_parser(reader, headers, delimiter).unwrap();
 
         let _record = parser.next();
     }
