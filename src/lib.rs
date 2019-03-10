@@ -1,9 +1,9 @@
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 #![allow(dead_code)]
 
 //! Plotka's core functionality.
 
-pub mod parser;
+pub mod parse;
 pub mod server;
 pub mod storage;
 mod utils;
