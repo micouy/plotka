@@ -1,30 +1,36 @@
-use csv::ReaderBuilder;
+//! CSV parsing.
+
+//!
+use csv::{Reader as CsvReader, ReaderBuilder as CsvReaderBuilder};
 
 use std::io::prelude::*;
 
-use super::{ParserCreationError, Record};
+use super::{Parser, ParserCreationError, Record};
 
-/// Create a CSV parser from a reader, headers and a delimiter.
-pub fn create_csv_parser<R>(
+fn create_csv_reader<R>(
     reader: R,
-    mb_headers: Option<Vec<String>>,
+    has_headers: bool,
     mb_delimiter: Option<u8>,
-) -> Result<(impl Iterator<Item = Record>, Vec<String>), ParserCreationError>
+) -> CsvReader<R>
 where
     R: Read,
 {
-    // Build a CSV reader.
-    let mut csv_reader = ReaderBuilder::new()
+    CsvReaderBuilder::new()
         .delimiter(mb_delimiter.unwrap_or(b','))
-        .has_headers(match mb_headers {
-            Some(_) => false,
-            None => true,
-        })
-        .from_reader(reader);
+        .has_headers(has_headers)
+        .from_reader(reader)
+}
 
-    // Try to get headers from the `mb_headers` arg, then from the file.
+fn extract_headers<R>(
+    mb_headers: Option<Vec<String>>,
+    csv_reader: &mut CsvReader<R>,
+) -> Result<Vec<String>, ParserCreationError>
+where
+    R: Read,
+{
+    // Try to get headers from the `mb_headers` arg, then from the reader.
     // If there are none specified, return an error.
-    let headers = mb_headers
+    mb_headers
         .or_else(|| {
             csv_reader
                 .headers()
@@ -33,19 +39,30 @@ where
                 })
                 .ok()
         })
-        .ok_or_else(|| ParserCreationError::NoCsvHeaders)?;
+        .ok_or_else(|| ParserCreationError::NoCsvHeaders)
+}
 
-    // Create the actual parser - an iterator yielding `Record`s from each line of input.
+/// Create a CSV parser from a reader, headers and a delimiter.
+pub fn create_csv_parser<R>(
+    reader: R,
+    mb_headers: Option<Vec<String>>,
+    mb_delimiter: Option<u8>,
+) -> Result<(impl Parser, Vec<String>), ParserCreationError>
+where
+    R: Read,
+{
+    let mut csv_reader =
+        create_csv_reader(reader, mb_headers.is_none(), mb_delimiter);
+    let headers = extract_headers(mb_headers, &mut csv_reader)?;
+
+    // Create the actual parser - an iterator yielding `Record`s from each line
+    // of input.
     let parser = {
-        let headers = headers.clone();
+        let headers: csv::StringRecord = headers.clone().into();
 
         csv_reader.into_records().map(|record| record.unwrap()).map(
             move |record| {
-                record
-                    .deserialize::<Record>(Some(
-                        &headers.clone().into(),
-                    ))
-                    .unwrap()
+                record.deserialize::<Record>(Some(&headers.clone())).unwrap()
             },
         )
     };
@@ -69,7 +86,8 @@ mod test {
         let contents = "a,b\n1,2\n11,12\n";
         let reader = BufReader::new(contents.as_bytes());
 
-        let (mut parser, headers) = create_csv_parser(reader, headers, delimiter).unwrap();
+        let (mut parser, headers) =
+            create_csv_parser(reader, headers, delimiter).unwrap();
 
         assert_eq!(headers, vec!["a", "b"]);
 
@@ -94,7 +112,8 @@ mod test {
         let contents = "1,2\n11,12\n";
         let reader = BufReader::new(contents.as_bytes());
 
-        let (mut parser, headers) = create_csv_parser(reader, headers, delimiter).unwrap();
+        let (mut parser, headers) =
+            create_csv_parser(reader, headers, delimiter).unwrap();
 
         assert_eq!(headers, vec!["a", "b"]);
 
@@ -112,6 +131,25 @@ mod test {
     }
 
     #[test]
+    fn test_parse_csv_with_delimiter() {
+        let headers = None;
+        let delimiter = Some(b';');
+
+        let contents = "a;b\n1;2\n11;12\n";
+        let reader = BufReader::new(contents.as_bytes());
+
+        let (mut parser, headers) =
+            create_csv_parser(reader, headers, delimiter).unwrap();
+
+        assert_eq!(headers, vec!["a", "b"]);
+
+        let record_1 = parser.next().unwrap();
+
+        assert_eq!(record_1["a"], 1.0);
+        assert_eq!(record_1["b"], 2.0);
+    }
+
+    #[test]
     #[should_panic]
     fn test_parse_csv_panic_on_non_number_data() {
         let headers = Some(vec!["a".to_string(), "b".to_string()]);
@@ -120,7 +158,8 @@ mod test {
         let contents = "h,i\nj,k\nl,m\n";
         let reader = BufReader::new(contents.as_bytes());
 
-        let (mut parser, _headers) = create_csv_parser(reader, headers, delimiter).unwrap();
+        let (mut parser, _headers) =
+            create_csv_parser(reader, headers, delimiter).unwrap();
 
         let _record = parser.next();
     }

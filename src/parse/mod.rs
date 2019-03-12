@@ -9,6 +9,11 @@ use self::csv::*;
 /// A record is a hashmap with [`String`] fields storing [`f64`] values.
 pub type Record = HashMap<String, f64>;
 
+/// An iterator yielding records.
+pub trait Parser: Iterator<Item = Record> {}
+
+impl<T> Parser for T where T: Iterator<Item = Record> {}
+
 /// Parser creation error.
 #[derive(Debug)]
 pub enum ParserCreationError {
@@ -22,13 +27,14 @@ pub enum Opts {
     Csv(Option<Vec<String>>, Option<u8>),
 }
 
-/// Create a parser from reader and options.
+/// Create a parser from reader and options and get field names. The field
+/// names are going to be passed to the frontend to prepare the config.
 ///
 /// To learn more, see [`create_csv_parser`].
-pub fn create_parser<R>(
+pub fn create_parser_and_get_fields<R>(
     reader: R,
     opts: Opts,
-) -> Result<(impl Iterator<Item = Record>, Vec<String>), ParserCreationError>
+) -> Result<(impl Parser, Vec<String>), ParserCreationError>
 where
     R: Read,
 {
