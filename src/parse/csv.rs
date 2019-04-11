@@ -62,7 +62,9 @@ where
 
         csv_reader.into_records().map(|record| record.unwrap()).map(
             move |record| {
-                record.deserialize::<Record>(Some(&headers.clone())).unwrap()
+                record
+                    .deserialize::<Record>(Some(&headers.clone()))
+                    .unwrap()
             },
         )
     };

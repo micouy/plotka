@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-#![allow(dead_code)]
+#![allow(clippy::redundant_closure)]
 
 //! Plotka's core functionality.
 
