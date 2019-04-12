@@ -1,47 +1,33 @@
 //! Input parsing.
 
-use std::{collections::HashMap, io::prelude::*};
+use std::{collections::HashMap, fmt, io::prelude::*};
 
 pub mod csv;
+pub mod record;
+pub mod json;
 
-use self::csv::*;
-
-/// A record is a hashmap with [`String`] fields storing [`f64`] values.
-pub type Record = HashMap<String, f64>;
-
-/// An iterator yielding records.
-pub trait Parser: Iterator<Item = Record> {}
-
-impl<T> Parser for T where T: Iterator<Item = Record> {}
-
-/// Parser creation error.
-#[derive(Debug)]
-pub enum ParserCreationError {
-    /// CSV headers have not been found in input or in args.
-    NoCsvHeaders,
-}
+use self::record::Record;
+use crate::storage::Number;
 
 /// Parser options.
 pub enum Opts {
-    /// Create a CSV parser from headers and a delimiter.
-    Csv(Option<Vec<String>>, Option<u8>),
+    /// Create a CSV parser from headers.
+    Csv(Vec<String>),
+    /// Create a JSON parser.
+    Json,
 }
 
-/// Create a parser from reader and options and get field names. The field
-/// names are going to be passed to the frontend to prepare the config.
-///
-/// To learn more, see [`create_csv_parser`].
-pub fn create_parser_and_get_fields<R>(
-    reader: R,
-    opts: Opts,
-) -> Result<(impl Parser, Vec<String>), ParserCreationError>
-where
-    R: Read,
-{
-    #[allow(unreachable_patterns)]
-    match opts {
-        Opts::Csv(headers, delimiter) =>
-            create_csv_parser(reader, headers, delimiter),
-        _ => unimplemented!(),
-    }
+/// A record parser.
+pub trait Parser<'a> {
+    /// Expected input.
+    type Input;
+
+    /// Parse error.
+    type Error: fmt::Display;
+
+    /// Parse the input.
+    fn parse(
+        &'a self,
+        input: Self::Input,
+    ) -> Result<Record<'a>, Self::Error>;
 }
