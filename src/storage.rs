@@ -1,4 +1,5 @@
 //! Data storage.
+
 use std::{borrow::Cow, collections::HashMap, fmt};
 
 /// Either `Vec<f64>` or `Vec<i64>`. Used as a "column" in [`Storage`].

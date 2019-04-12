@@ -1,7 +1,6 @@
 //! CSV parsing.
-use csv::{Reader as CsvReader, ReaderBuilder as CsvReaderBuilder};
 
-use std::{fmt, io::prelude::*};
+use std::fmt;
 
 use super::{Parser, Record};
 

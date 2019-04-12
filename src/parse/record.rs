@@ -1,9 +1,8 @@
 //! Record deserialization.
-use serde::{
+
+use ::serde::{
     de::{
         self,
-        value::BorrowedStrDeserializer,
-        DeserializeSeed,
         MapAccess,
         Visitor,
     },

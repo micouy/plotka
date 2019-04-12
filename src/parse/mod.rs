@@ -1,6 +1,6 @@
 //! Input parsing.
 
-use std::{collections::HashMap, fmt, io::prelude::*};
+use std::{collections::HashMap, fmt};
 
 pub mod csv;
 pub mod record;

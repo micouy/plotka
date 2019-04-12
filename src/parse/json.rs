@@ -1,6 +1,7 @@
 //! JSON parsing.
+
 use ::serde_json as json;
-use ::serde::{Deserialize, Deserializer};
+use ::serde::Deserialize;
 
 use super::*;
 
