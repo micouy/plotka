@@ -6,4 +6,3 @@
 pub mod parse;
 pub mod server;
 pub mod storage;
-mod utils;
