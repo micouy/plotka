@@ -1,12 +1,8 @@
 //! Data storage.
-
 use std::{borrow::Cow, collections::HashMap, fmt};
 
-mod deser;
-
-pub use self::deser::*;
-
 /// Either `Vec<f64>` or `Vec<i64>`. Used as a "column" in [`Storage`].
+#[derive(Debug)]
 pub enum NumberVec {
     /// A vector of floats.
     Float(Vec<f64>),
@@ -88,6 +84,7 @@ impl NumberVec {
 }
 
 /// A number - either a float or an integer.
+#[derive(Debug, PartialEq)]
 pub enum Number {
     /// A float.
     Float(f64),
@@ -130,6 +127,7 @@ impl fmt::Display for StorageError {
 }
 
 /// Record storage.
+#[derive(Debug)]
 pub struct Storage {
     inner: HashMap<String, NumberVec>,
 }
@@ -227,29 +225,5 @@ where
 
     fn index(&self, field: S) -> &Self::Output {
         &self.inner[field.borrow()]
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use ::serde::de::{value::MapAccessDeserializer, DeserializeSeed};
-
-    use super::*;
-
-    #[test]
-    fn test_deserialize_hashmap() {
-        let keys = vec!["a", "b", "c"];
-        let values = vec!["1", "1.01", "-10000"];
-        let record = Record(keys.into_iter(), values.into_iter());
-
-        let mut storage = Storage::new();
-
-        let () = (&mut storage)
-            .deserialize(MapAccessDeserializer::new(record))
-            .unwrap();
-
-        assert_eq!(storage["a"].int().unwrap()[0], 1);
-        assert_eq!(storage["b"].float().unwrap()[0], 1.01);
-        assert_eq!(storage["c"].int().unwrap()[0], -10000);
     }
 }

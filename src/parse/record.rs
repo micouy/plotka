@@ -1,10 +1,9 @@
 //! Record deserialization.
-
 use serde::{
     de::{
+        self,
         value::BorrowedStrDeserializer,
         DeserializeSeed,
-        Error as SerdeError,
         MapAccess,
         Visitor,
     },
@@ -45,7 +44,7 @@ impl<'de> Deserialize<'de> for Number {
                 } else if let Ok(float) = v.parse::<f64>() {
                     Ok(Number::Float(float))
                 } else {
-                    Err(SerdeError::custom(DeserError::Parse))
+                    Err(de::Error::custom(DeserError::Parse))
                 }
             }
         }
@@ -59,56 +58,56 @@ impl<'de> Deserialize<'de> for Number {
 
             fn visit_i8<E>(self, int: i8) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Ok(Number::Int(i64::from(int)))
             }
 
             fn visit_i32<E>(self, int: i32) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Ok(Number::Int(i64::from(int)))
             }
 
             fn visit_i64<E>(self, int: i64) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Ok(Number::Int(int))
             }
 
             fn visit_u8<E>(self, uint: u8) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Ok(Number::Int(i64::from(uint)))
             }
 
             fn visit_u32<E>(self, uint: u32) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Ok(Number::Int(i64::from(uint)))
             }
 
             fn visit_u64<E>(self, uint: u64) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Ok(Number::Int(uint as i64))
             }
 
             fn visit_f32<E>(self, float: f32) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Ok(Number::Float(f64::from(float)))
             }
 
             fn visit_f64<E>(self, float: f64) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Ok(Number::Float(float))
             }
@@ -118,47 +117,47 @@ impl<'de> Deserialize<'de> for Number {
                 v: &'de str,
             ) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Self::parse_str(v)
-                    .map_err(|_| SerdeError::custom(DeserError::Parse))
+                    .map_err(|_| de::Error::custom(DeserError::Parse))
             }
 
             fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Self::parse_str(v.as_str())
-                    .map_err(|_| SerdeError::custom(DeserError::Parse))
+                    .map_err(|_| de::Error::custom(DeserError::Parse))
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 Self::parse_str(v)
-                    .map_err(|_| SerdeError::custom(DeserError::Parse))
+                    .map_err(|_| de::Error::custom(DeserError::Parse))
             }
 
             fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 let d = v
                     .to_digit(10)
-                    .ok_or_else(|| SerdeError::custom(DeserError::Parse))?;
+                    .ok_or_else(|| de::Error::custom(DeserError::Parse))?;
 
                 Ok(Number::Int(i64::from(d)))
             }
 
             fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
-                let s = std::str::from_utf8(v).map_err(SerdeError::custom)?;
+                let s = std::str::from_utf8(v).map_err(de::Error::custom)?;
 
                 Self::parse_str(s)
-                    .map_err(|_| SerdeError::custom(DeserError::Parse))
+                    .map_err(|_| de::Error::custom(DeserError::Parse))
             }
 
             fn visit_borrowed_bytes<E>(
@@ -166,43 +165,40 @@ impl<'de> Deserialize<'de> for Number {
                 v: &'de [u8],
             ) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 let s = std::str::from_utf8(v)
-                    .map_err(|_| SerdeError::custom(DeserError::Parse))?;
+                    .map_err(|_| de::Error::custom(DeserError::Parse))?;
 
-                Self::parse_str(s).map_err(SerdeError::custom)
+                Self::parse_str(s).map_err(de::Error::custom)
             }
 
             fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
                 let s = std::str::from_utf8(&v)
-                    .map_err(|_| SerdeError::custom(DeserError::Parse))?;
+                    .map_err(|_| de::Error::custom(DeserError::Parse))?;
 
-                Self::parse_str(s).map_err(SerdeError::custom)
+                Self::parse_str(s).map_err(de::Error::custom)
             }
         }
 
-        deserializer.deserialize_f64(NumberVisitor {})
+        deserializer.deserialize_any(NumberVisitor {})
     }
 }
 
-/// A newtype containing field's name - either a [`String`] or a [`&str`][str].
-pub struct Field<'a>(Cow<'a, str>);
+struct CowWrapper<'a>(pub Cow<'a, str>);
 
-impl<'a, 'de: 'a> Deserialize<'de> for Field<'a> {
+impl<'a, 'de: 'a> Deserialize<'de> for CowWrapper<'a> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct FieldVisitor<'a> {
-            lifetime: PhantomData<Field<'a>>,
-        }
+        struct CowStrVisitor<'a>(PhantomData<&'a str>);
 
-        impl<'a, 'de: 'a> Visitor<'de> for FieldVisitor<'a> {
-            type Value = Field<'a>;
+        impl<'a, 'de: 'a> Visitor<'de> for CowStrVisitor<'a> {
+            type Value = Cow<'a, str>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 write!(formatter, "a number, string-like type or bytes a number can be parsed from")
@@ -213,33 +209,32 @@ impl<'a, 'de: 'a> Deserialize<'de> for Field<'a> {
                 v: &'de str,
             ) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
-                Ok(Field(Cow::Borrowed(v)))
+                Ok(Cow::Borrowed(v))
             }
 
             fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
-                Ok(Field(Cow::Owned(v)))
+                Ok(Cow::Owned(v))
             }
 
             fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
-                Ok(Field(Cow::Owned(v.to_owned())))
+                Ok(Cow::Owned(v.to_owned()))
             }
 
             fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
-                Ok(Field(Cow::Owned(
-                    String::from_utf8(v.to_vec())
-                        .map_err(SerdeError::custom)?,
-                )))
+                Ok(Cow::Owned(
+                    String::from_utf8(v.to_vec()).map_err(de::Error::custom)?,
+                ))
             }
 
             fn visit_borrowed_bytes<E>(
@@ -247,40 +242,39 @@ impl<'a, 'de: 'a> Deserialize<'de> for Field<'a> {
                 v: &'de [u8],
             ) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
-                Ok(Field(Cow::Borrowed(
-                    std::str::from_utf8(v).map_err(SerdeError::custom)?,
-                )))
+                Ok(Cow::Borrowed(
+                    std::str::from_utf8(v).map_err(de::Error::custom)?,
+                ))
             }
 
             fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
             where
-                E: SerdeError,
+                E: de::Error,
             {
-                Ok(Field(Cow::Owned(
-                    String::from_utf8(v).map_err(SerdeError::custom)?,
-                )))
+                Ok(Cow::Owned(String::from_utf8(v).map_err(de::Error::custom)?))
             }
         }
 
-        deserializer.deserialize_str(FieldVisitor {
-            lifetime: PhantomData,
-        })
+        deserializer
+            .deserialize_str(CowStrVisitor(PhantomData))
+            .map(|cow| CowWrapper(cow))
     }
 }
 
-impl<'de, 'a> DeserializeSeed<'de> for &'a mut Storage {
-    type Value = ();
+/// A wrapper around a hashmap.
+pub struct Record<'a>(pub HashMap<Cow<'a, str>, Number>);
 
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+impl<'a, 'de: 'a> Deserialize<'de> for Record<'a> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct ExtendStorageVisitor<'a>(&'a mut Storage);
+        struct RecordVisitor<'a>(PhantomData<Cow<'a, str>>);
 
-        impl<'de, 'a> Visitor<'de> for ExtendStorageVisitor<'a> {
-            type Value = ();
+        impl<'a, 'de: 'a> Visitor<'de> for RecordVisitor<'a> {
+            type Value = Record<'a>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 write!(formatter, "a map of numbers with strings as keys")
@@ -290,8 +284,8 @@ impl<'de, 'a> DeserializeSeed<'de> for &'a mut Storage {
             where
                 A: MapAccess<'de>,
             {
-                let record = (0..)
-                    .map(|_| map.next_entry::<Field, Number>())
+                (0..)
+                    .map(|_| map.next_entry::<CowWrapper, Number>())
                     .take_while(|entry| match entry {
                         Ok(None) => false,
                         _ => true,
@@ -303,65 +297,20 @@ impl<'de, 'a> DeserializeSeed<'de> for &'a mut Storage {
                             (key.0, number)
                         })
                     }) // already checked for Ok(None)
-                    .collect::<Result<HashMap<_, _, _>, _>>()?;
-
-                self.0.push_record(record).map_err(SerdeError::custom)
+                    .collect::<Result<HashMap<_, _, _>, _>>()
+                    .map(|hashmap| Record(hashmap))
+                    .map_err(de::Error::custom)
             }
         }
 
-        deserializer.deserialize_map(ExtendStorageVisitor(self))
+        deserializer.deserialize_map(RecordVisitor(PhantomData))
     }
 }
 
-/// A newtype containing two iterators - one over keys and one over values.
-///
-/// This type is useful because it implements [`MapAccess`] using [`BorrowedStrDeserializer`]
-/// so it doesn't require creating a new [`String`] to deserialize to [`&str`][str].
-pub struct Record<'a, K, V>(pub K, pub V)
-where
-    K: Iterator<Item = &'a str>,
-    V: Iterator<Item = &'a str>;
+impl<'a, S> std::ops::Index<S> for Record<'a> where S: std::borrow::Borrow<str> {
+    type Output = Number;
 
-impl<'de, 'a: 'de, K, V> MapAccess<'de> for Record<'a, K, V>
-where
-    K: Iterator<Item = &'a str>,
-    V: Iterator<Item = &'a str>,
-{
-    type Error = ::serde::de::value::Error;
-
-    fn next_key_seed<SK>(
-        &mut self,
-        seed: SK,
-    ) -> Result<Option<SK::Value>, Self::Error>
-    where
-        SK: DeserializeSeed<'de>,
-    {
-        let key = self.0.next();
-
-        match key {
-            None => Ok(None),
-            Some(key) => seed
-                .deserialize::<BorrowedStrDeserializer<::serde::de::value::Error>>(BorrowedStrDeserializer::new(key))
-                .map(Some)
-                .map_err(SerdeError::custom),
-        }
-    }
-
-    fn next_value_seed<SV>(
-        &mut self,
-        seed: SV,
-    ) -> Result<SV::Value, Self::Error>
-    where
-        SV: DeserializeSeed<'de>,
-    {
-        let value = self
-            .1
-            .next()
-            .ok_or_else(|| SerdeError::custom(DeserError::NextOnEmptyIter))?;
-
-        seed.deserialize::<BorrowedStrDeserializer<::serde::de::value::Error>>(
-            BorrowedStrDeserializer::new(value),
-        )
-        .map_err(SerdeError::custom)
+    fn index(&self, index: S) -> &Self::Output {
+        &self.0[index.borrow()]
     }
 }
