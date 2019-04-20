@@ -2,6 +2,8 @@
 
 use std::{borrow::Cow, collections::HashMap, fmt};
 
+use crate::Record;
+
 /// Either `Vec<f64>` or `Vec<i64>`. Used as a "column" in [`Storage`].
 #[derive(Debug)]
 pub enum NumberVec {
@@ -114,6 +116,9 @@ pub enum StorageError {
     /// Number's type (derived from whether it can be parsed to an integer or
     /// not) does not match the type of storage's field.
     FieldTypeMismatch,
+
+    /// Received an empty record.
+    EmptyRecord,
 }
 
 impl fmt::Display for StorageError {
@@ -131,6 +136,7 @@ impl fmt::Display for StorageError {
 #[derive(Debug)]
 pub struct Storage {
     inner: HashMap<String, NumberVec>,
+    is_empty: bool,
 }
 
 impl Storage {
@@ -138,13 +144,16 @@ impl Storage {
     pub fn new() -> Self {
         Storage {
             inner: HashMap::new(),
+            is_empty: true,
         }
     }
 
     fn push_record_first<'a>(
         &mut self,
-        record: HashMap<Cow<'a, str>, Number>,
+        record: Record<'a>,
     ) -> Result<(), StorageError> {
+        let record = record.0;
+
         self.inner = record
             .into_iter()
             .map(|(key, number)| {
@@ -152,25 +161,34 @@ impl Storage {
             })
             .collect();
 
+        if self.inner.is_empty() {
+            return Err(StorageError::EmptyRecord);
+        }
+
+        self.is_empty = false;
+
         Ok(())
     }
 
     fn push_record_next<'a>(
         &mut self,
-        record: HashMap<Cow<'a, str>, Number>,
+        record: Record<'a>,
     ) -> Result<(), StorageError> {
-        let lengths_match = || record.len() != self.inner.len();
-        let keys_match = || {
-            self.inner
-                .keys()
-                .all(|key| record.contains_key(key.as_str()))
-        };
+        let record = record.0;
 
-        if !lengths_match() || !keys_match() {
+        fn keys_match(
+            inner: &HashMap<String, NumberVec>,
+            record: &HashMap<Cow<str>, Number>,
+        ) -> bool {
+            inner.keys().all(|key| record.contains_key(key.as_str()))
+        }
+
+        if record.len() != self.inner.len() || !keys_match(&self.inner, &record)
+        {
             return Err(StorageError::FieldMismatch);
         }
 
-        let all_match = record.iter().all(|(key, number)| {
+        let types_match = record.iter().all(|(key, number)| {
             let vec = self.inner.get_mut(&**key).unwrap();
 
             match (vec, number) {
@@ -180,7 +198,7 @@ impl Storage {
             }
         });
 
-        if !all_match {
+        if !types_match {
             Err(StorageError::FieldTypeMismatch)
         } else {
             record.into_iter().for_each(|(key, number)| {
@@ -201,16 +219,9 @@ impl Storage {
     /// Push a record to the storage.
     pub fn push_record<'a>(
         &mut self,
-        record: HashMap<Cow<'a, str>, Number>,
+        record: Record<'a>,
     ) -> Result<(), StorageError> {
-        let is_empty = self
-            .inner
-            .values()
-            .nth(0)
-            .map(NumberVec::is_empty)
-            .unwrap_or(true);
-
-        if !is_empty {
+        if !self.is_empty {
             self.push_record_next(record)
         } else {
             self.push_record_first(record)

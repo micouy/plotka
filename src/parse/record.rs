@@ -1,11 +1,7 @@
 //! Record deserialization.
 
 use ::serde::{
-    de::{
-        self,
-        MapAccess,
-        Visitor,
-    },
+    de::{self, MapAccess, Visitor},
     Deserialize,
     Deserializer,
 };
@@ -306,7 +302,10 @@ impl<'a, 'de: 'a> Deserialize<'de> for Record<'a> {
     }
 }
 
-impl<'a, S> std::ops::Index<S> for Record<'a> where S: std::borrow::Borrow<str> {
+impl<'a, S> std::ops::Index<S> for Record<'a>
+where
+    S: std::borrow::Borrow<str>,
+{
     type Output = Number;
 
     fn index(&self, index: S) -> &Self::Output {
