@@ -4,6 +4,12 @@
 
 //! Plotka's core functionality.
 
+mod error;
+
 pub mod parse;
 pub mod server;
 pub mod storage;
+
+use self::parse::record::Record;
+
+pub use self::error::Error;
