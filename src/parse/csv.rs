@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use super::{Parser, Record};
+use super::{Parser, ParseError, Record};
 
 /// CSV parser.
 #[derive(Debug)]
@@ -19,31 +19,16 @@ impl CsvParser {
     }
 }
 
-/// CSV error.
-#[derive(Debug)]
-pub enum Error {
-    /// An error comming from the [`csv`] crate;
-    External(csv::Error),
-}
+impl Parser for CsvParser {
+    type Input = csv::StringRecord;
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO
-        write!(f, "csv error")
-    }
-}
-
-impl<'a> Parser<'a> for CsvParser {
-    type Input = &'a csv::StringRecord;
-    type Error = Error;
-
-    fn parse(
+    fn parse<'a>(
         &'a self,
-        input: Self::Input,
-    ) -> Result<Record<'a>, Self::Error> {
+        input: &'a Self::Input,
+    ) -> Result<Record<'a>, ParseError> {
         input
             .deserialize(Some(&self.headers))
-            .map_err(Error::External)
+            .map_err(|_| ParseError {})
     }
 }
 

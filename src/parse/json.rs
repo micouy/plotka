@@ -1,20 +1,23 @@
 //! JSON parsing.
 
-use ::serde_json as json;
 use ::serde::Deserialize;
+use serde_json as json;
 
-use super::*;
+use super::{Parser, ParseError, Record};
 
-struct JsonParser;
+/// JSON parser.
+pub struct JsonParser;
 
-impl<'a> Parser<'a> for JsonParser {
-    type Input = &'a str;
-    type Error = json::Error;
+impl Parser for JsonParser {
+    type Input = String;
 
-    fn parse(&'a self, input: Self::Input) -> Result<Record<'a>, Self::Error> {
-        let mut deserializer = json::Deserializer::from_str(input);
+    fn parse<'a>(
+        &'a self,
+        input: &'a Self::Input,
+    ) -> Result<Record, ParseError> {
+        let mut deserializer = json::Deserializer::from_str(&input);
 
-        Record::deserialize(&mut deserializer)
+        Record::deserialize(&mut deserializer).map_err(|_| ParseError {})
     }
 }
 
