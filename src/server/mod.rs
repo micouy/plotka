@@ -6,9 +6,15 @@ use ::log::info;
 use ::rand::prelude::*;
 use ::serde_json::Value;
 
-use std::{collections::HashMap, fmt, marker::PhantomData, sync::mpsc::Sender};
+use std::{collections::HashMap, marker::PhantomData, sync::mpsc::Sender, io};
 
-use crate::{parse::Parser, storage::Storage, Error};
+use crate::{parse::Parser, storage::{Storage, StorageError}};
+
+mod session;
+
+use self::session::*;
+
+pub use self::session::WsSessionState;
 
 #[derive(Message)]
 #[rtype(usize)]
@@ -24,35 +30,53 @@ struct Disconnect {
 #[derive(Message, Clone)]
 struct WsMessage(String);
 
+/// A wrapper around the parser input.
 #[derive(Message)]
-pub struct InputMessage<I>(pub I);
+pub struct InputMessage<I>(pub I) where I: Send;
 
 /// A message to stop other threads.
-pub struct StopApp;
+pub struct StopAppMessage;
+
+/// Internal error.
+#[derive(Debug)]
+pub enum InternalError {
+    Parse,
+    Storage(StorageError),
+}
+
+impl StopAppMessage {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
 
 /// Internal server.
-pub struct Server<P>
+pub struct Server<R, P>
 where
-    P: Parser,
+    R: 'static + io::Read,
+    P: Parser<R>,
 {
     sessions: HashMap<usize, Recipient<WsMessage>>,
     storage: Storage,
     rng: SmallRng,
-    stop_tx: Sender<StopApp>,
+    stop_tx: Sender<StopAppMessage>,
+    reader: PhantomData<R>,
     parser: P,
 }
 
-impl<P> Server<P>
+impl<R, P> Server<R, P>
 where
-    P: Parser,
+    R: io::Read,
+    P: Parser<R>,
 {
     /// Create a new server.
-    pub fn new(stop_tx: Sender<StopApp>, parser: P) -> Self {
+    pub fn new(stop_tx: Sender<StopAppMessage>, parser: P) -> Self {
         Server {
             sessions: HashMap::new(),
             rng: SmallRng::from_entropy(),
             storage: Storage::new(),
             stop_tx,
+            reader: PhantomData,
             parser,
         }
     }
@@ -67,18 +91,19 @@ where
         }
     }
 
-    fn handle_input(&mut self, input: P::Input) -> Result<(), Error> {
-        let record = self.parser.parse(&input).map_err(|_| Error::Parse)?;
+    fn handle_input(&mut self, input: P::Input) -> Result<(), InternalError> {
+        let record = self.parser.parse(&input).map_err(|_| InternalError::Parse)?;
 
         self.storage
             .push_record(record)
-            .map_err(|e| Error::Storage(e))
+            .map_err(|e| InternalError::Storage(e))
     }
 }
 
-impl<P> Actor for Server<P>
+impl<R, P> Actor for Server<R, P>
 where
-    P: Parser,
+    R: io::Read,
+    P: Parser<R>,
 {
     type Context = Context<Self>;
 
@@ -86,7 +111,7 @@ where
         info!("Stopping...");
 
         // Close the IO thread.
-        self.stop_tx.send(StopApp {}).unwrap();
+        self.stop_tx.send(StopAppMessage::new()).unwrap();
 
         System::current().stop();
 
@@ -94,9 +119,10 @@ where
     }
 }
 
-impl<P> Handler<Connect> for Server<P>
+impl<R, P> Handler<Connect> for Server<R, P>
 where
-    P: Parser,
+    R: io::Read,
+    P: Parser<R>,
 {
     type Result = usize;
 
@@ -113,9 +139,10 @@ where
     }
 }
 
-impl<P> Handler<Disconnect> for Server<P>
+impl<R, P> Handler<Disconnect> for Server<R, P>
 where
-    P: Parser,
+    R: io::Read,
+    P: Parser<R>,
 {
     type Result = ();
 
@@ -126,9 +153,10 @@ where
     }
 }
 
-impl<P> Handler<InputMessage<P::Input>> for Server<P>
+impl<R, P> Handler<InputMessage<P::Input>> for Server<R, P>
 where
-    P: Parser,
+    R: io::Read,
+    P: Parser<R>,
 {
     type Result = ();
 
@@ -140,83 +168,18 @@ where
     }
 }
 
-pub fn ws_route<P>(
-    req: &HttpRequest<WsSessionState<P>>,
+pub fn ws_route<R, P>(
+    req: &HttpRequest<WsSessionState<R, P>>,
 ) -> Result<HttpResponse, actix_web::Error>
 where
-    P: Parser,
+    R: io::Read,
+    P: Parser<R>,
 {
     ws::start(
         req,
         WsSession {
             id: 0,
-            phantom_type: PhantomData,
+            parser: PhantomData,
         },
     )
-}
-
-pub struct WsSessionState<P>
-where
-    P: Parser,
-{
-    pub addr: Addr<Server<P>>,
-}
-
-struct WsSession<P>
-where
-    P: Parser,
-{
-    id: usize,
-    phantom_type: PhantomData<P>,
-}
-
-impl<P> StreamHandler<ws::Message, ws::ProtocolError> for WsSession<P>
-where
-    P: Parser,
-{
-    fn handle(&mut self, _msg: ws::Message, _ctx: &mut Self::Context) {}
-}
-
-impl<P> Actor for WsSession<P>
-where
-    P: Parser,
-{
-    type Context = ws::WebsocketContext<Self, WsSessionState<P>>;
-
-    fn started(&mut self, ctx: &mut Self::Context) {
-        let addr = ctx.address();
-
-        ctx.state()
-            .addr
-            .send(Connect {
-                addr: addr.recipient(),
-            })
-            .into_actor(self)
-            .then(|res, act, ctx| {
-                match res {
-                    Ok(res) => act.id = res,
-                    _ => ctx.stop(),
-                }
-
-                fut::ok(())
-            })
-            .wait(ctx);
-    }
-
-    fn stopping(&mut self, ctx: &mut Self::Context) -> Running {
-        ctx.state().addr.do_send(Disconnect { id: self.id });
-
-        Running::Stop
-    }
-}
-
-impl<P> Handler<WsMessage> for WsSession<P>
-where
-    P: Parser,
-{
-    type Result = ();
-
-    fn handle(&mut self, msg: WsMessage, ctx: &mut Self::Context) {
-        ctx.text(msg.0);
-    }
 }
