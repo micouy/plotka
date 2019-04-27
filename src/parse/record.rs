@@ -15,6 +15,7 @@ use super::*;
 pub enum DeserError {
     /// Cannot parse the input.
     Parse,
+
     /// The `next` method called on an already empty itearator.
     NextOnEmptyIter,
 }

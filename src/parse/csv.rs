@@ -1,8 +1,13 @@
 //! CSV parsing.
 
-use std::fmt;
+use ::csv::{
+    ReaderBuilder as CsvReaderBuilder,
+    StringRecord as CsvStringRecord,
+};
 
-use super::{Parser, ParseError, Record};
+use std::io;
+
+use super::{ParseError, Parser, ReadError, record::Record};
 
 /// CSV parser.
 #[derive(Debug)]
@@ -19,8 +24,40 @@ impl CsvParser {
     }
 }
 
-impl Parser for CsvParser {
-    type Input = csv::StringRecord;
+pub struct CsvReader<R>(csv::StringRecordsIntoIter<R>) where R: io::Read;
+
+impl<R> CsvReader<R> where R: io::Read {
+    pub fn new(reader: R, headers: Vec<String>, delimiter: Option<u8>) -> Self {
+        let mut inner = CsvReaderBuilder::new()
+            .delimiter(delimiter.unwrap_or(b','))
+            .from_reader(reader);
+
+        inner.set_headers(headers.into());
+
+        Self(inner.into_records())
+    }
+}
+
+impl<R> Iterator for CsvReader<R> where R: io::Read {
+    type Item = Result<CsvStringRecord, ReadError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+	self.0.next().map(|record| record.map_err(|_| ReadError {}))
+    }
+}
+
+impl<R> Parser<R> for CsvParser where R: io::Read {
+    type Input = CsvStringRecord;
+
+    type Settings = (Vec<String>, Option<u8>);
+
+    type Reader = CsvReader<R>;
+
+    fn wrap_reader(reader: R, settings: Self::Settings) -> Self::Reader {
+        let (headers, delimiter) = settings;
+
+        CsvReader::new(reader, headers, delimiter)
+    }
 
     fn parse<'a>(
         &'a self,

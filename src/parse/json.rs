@@ -3,13 +3,45 @@
 use ::serde::Deserialize;
 use serde_json as json;
 
-use super::{Parser, ParseError, Record};
+use std::io::{self, BufRead, BufReader, Lines};
+
+use super::{ParseError, Parser, ReadError, record::Record};
 
 /// JSON parser.
 pub struct JsonParser;
 
-impl Parser for JsonParser {
+impl JsonParser {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+pub struct JsonReader<R>(Lines<BufReader<R>>) where R: io::Read;
+
+impl<R> JsonReader<R> where R: io::Read {
+    pub fn new(reader: R) -> Self {
+        Self(BufReader::new(reader).lines())
+    }
+}
+
+impl<R> Iterator for JsonReader<R> where R: io::Read {
+    type Item = Result<String, ReadError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|line| line.map_err(|_| ReadError {}))
+    }
+}
+
+impl<R> Parser<R> for JsonParser where R: io::Read {
     type Input = String;
+
+    type Settings = ();
+
+    type Reader = JsonReader<R>;
+
+    fn wrap_reader(reader: R, settings: Self::Settings) -> Self::Reader {
+        JsonReader::new(reader)
+    }
 
     fn parse<'a>(
         &'a self,
