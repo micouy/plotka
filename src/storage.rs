@@ -2,7 +2,7 @@
 
 use std::{borrow::Cow, collections::HashMap, fmt};
 
-use crate::Record;
+use crate::parse::record::Record;
 
 /// Either `Vec<f64>` or `Vec<i64>`. Used as a "column" in [`Storage`].
 #[derive(Debug)]
