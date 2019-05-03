@@ -1,5 +1,10 @@
 //! Data storage.
 
+use ::serde::{
+    ser::{SerializeMap, SerializeSeq},
+    *,
+};
+
 use std::{borrow::Cow, collections::HashMap, fmt};
 
 use crate::parse::record::Record;
@@ -87,7 +92,7 @@ impl NumberVec {
 }
 
 /// A number - either a float or an integer.
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Number {
     /// A float.
     Float(f64),
@@ -148,16 +153,24 @@ impl Storage {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.is_empty
+    }
+
+    pub fn records_len(&self) -> usize {
+        self.inner.values().next().map(|vec| vec.len()).unwrap_or(0)
+    }
+
     fn push_record_first<'a>(
         &mut self,
-        record: Record<'a>,
+        record: &'a Record<'a>,
     ) -> Result<(), StorageError> {
-        let record = record.0;
+        let record = &record.0;
 
         self.inner = record
-            .into_iter()
+            .iter()
             .map(|(key, number)| {
-                (key.into_owned(), NumberVec::from_number(number))
+                (key.clone().into_owned(), NumberVec::from_number(*number))
             })
             .collect();
 
@@ -172,16 +185,16 @@ impl Storage {
 
     fn push_record_next<'a>(
         &mut self,
-        record: Record<'a>,
+        record: &'a Record<'a>,
     ) -> Result<(), StorageError> {
-        let record = record.0;
-
         fn keys_match(
             inner: &HashMap<String, NumberVec>,
             record: &HashMap<Cow<str>, Number>,
         ) -> bool {
             inner.keys().all(|key| record.contains_key(key.as_str()))
         }
+
+        let record = &record.0;
 
         if record.len() != self.inner.len() || !keys_match(&self.inner, &record)
         {
@@ -198,30 +211,30 @@ impl Storage {
             }
         });
 
-        if !types_match {
-            Err(StorageError::FieldTypeMismatch)
-        } else {
-            record.into_iter().for_each(|(key, number)| {
-                let vec = self.inner.get_mut(&*key).unwrap();
+        if types_match {
+            record.iter().for_each(|(key, number)| {
+                let vec = self.inner.get_mut(&**key).unwrap();
 
                 match (vec, number) {
-                    (NumberVec::Int(vec), Number::Int(int)) => vec.push(int),
+                    (NumberVec::Int(vec), Number::Int(int)) => vec.push(*int),
                     (NumberVec::Float(vec), Number::Float(float)) =>
-                        vec.push(float),
+                        vec.push(*float),
                     _ => unreachable!(),
                 }
             });
 
             Ok(())
+        } else {
+            Err(StorageError::FieldTypeMismatch)
         }
     }
 
     /// Push a record to the storage.
     pub fn push_record<'a>(
         &mut self,
-        record: Record<'a>,
+        record: &'a Record<'a>,
     ) -> Result<(), StorageError> {
-        if !self.is_empty {
+        if !self.is_empty() {
             self.push_record_next(record)
         } else {
             self.push_record_first(record)
@@ -237,5 +250,47 @@ where
 
     fn index(&self, field: S) -> &Self::Output {
         &self.inner[field.borrow()]
+    }
+}
+
+impl Serialize for Storage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        struct StorageAndIndex<'a>(&'a HashMap<String, NumberVec>, usize);
+
+        impl<'a> Serialize for StorageAndIndex<'a> {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                let mut map = serializer.serialize_map(Some(self.0.len()))?;
+
+                self.0
+                    .iter()
+                    .map(|(k, v)| match v {
+                        NumberVec::Float(vec) =>
+                            map.serialize_entry(k, &vec[self.1]),
+                        NumberVec::Int(vec) =>
+                            map.serialize_entry(k, &vec[self.1]),
+                    })
+                    .collect::<Result<_, _>>()?;
+
+                map.end()
+            }
+        }
+
+        let storage = &self.inner;
+        let records_len = self.records_len();
+        let mut seq = serializer.serialize_seq(Some(records_len))?;
+
+        (0..records_len)
+            .map(|index| {
+                seq.serialize_element(&StorageAndIndex(storage, index))
+            })
+            .collect::<Result<_, _>>()?;
+
+        seq.end()
     }
 }
