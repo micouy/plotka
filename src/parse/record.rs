@@ -4,6 +4,8 @@ use ::serde::{
     de::{self, MapAccess, Visitor},
     Deserialize,
     Deserializer,
+    Serialize,
+    Serializer,
 };
 
 use std::{borrow::Cow, fmt, marker::PhantomData};
@@ -311,5 +313,26 @@ where
 
     fn index(&self, index: S) -> &Self::Output {
         &self.0[index.borrow()]
+    }
+}
+
+impl<'a> Serialize for Record<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        impl Serialize for Number {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+            where
+                S: Serializer,
+            {
+                match self {
+                    Number::Float(float) => serializer.serialize_f64(*float),
+                    Number::Int(int) => serializer.serialize_i64(*int),
+                }
+            }
+        }
+
+        self.0.serialize(serializer)
     }
 }

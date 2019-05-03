@@ -7,7 +7,7 @@ use ::csv::{
 
 use std::io;
 
-use super::{ParseError, Parser, ReadError, record::Record};
+use super::{record::Record, ParseError, Parser, ReadError};
 
 /// CSV parser.
 #[derive(Debug)]
@@ -24,9 +24,14 @@ impl CsvParser {
     }
 }
 
-pub struct CsvReader<R>(csv::StringRecordsIntoIter<R>) where R: io::Read;
+pub struct CsvReader<R>(csv::StringRecordsIntoIter<R>)
+where
+    R: io::Read;
 
-impl<R> CsvReader<R> where R: io::Read {
+impl<R> CsvReader<R>
+where
+    R: io::Read,
+{
     pub fn new(reader: R, headers: Vec<String>, delimiter: Option<u8>) -> Self {
         let mut inner = CsvReaderBuilder::new()
             .delimiter(delimiter.unwrap_or(b','))
@@ -38,15 +43,21 @@ impl<R> CsvReader<R> where R: io::Read {
     }
 }
 
-impl<R> Iterator for CsvReader<R> where R: io::Read {
+impl<R> Iterator for CsvReader<R>
+where
+    R: io::Read,
+{
     type Item = Result<CsvStringRecord, ReadError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-	self.0.next().map(|record| record.map_err(|_| ReadError {}))
+        self.0.next().map(|record| record.map_err(|_| ReadError {}))
     }
 }
 
-impl<R> Parser<R> for CsvParser where R: io::Read {
+impl<R> Parser<R> for CsvParser
+where
+    R: io::Read,
+{
     type Input = CsvStringRecord;
 
     type Settings = (Vec<String>, Option<u8>);

@@ -6,8 +6,8 @@ pub mod csv;
 pub mod json;
 pub mod record;
 
-use crate::storage::Number;
 use crate::parse::record::Record;
+use crate::storage::Number;
 
 /// Parser settings.
 pub enum ParserSettings {
@@ -48,7 +48,10 @@ impl fmt::Display for ReadError {
 /// The `'static` lifetime is required in order to implement
 /// the [`Handler`][actix::Handler] trait on the
 /// [`Server`][crate::server::Server].
-pub trait Parser<R>: 'static where R: io::Read {
+pub trait Parser<R>: 'static
+where
+    R: io::Read,
+{
     /// Expected input.
     type Input: Send;
 

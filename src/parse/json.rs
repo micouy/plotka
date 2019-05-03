@@ -5,7 +5,7 @@ use serde_json as json;
 
 use std::io::{self, BufRead, BufReader, Lines};
 
-use super::{ParseError, Parser, ReadError, record::Record};
+use super::{record::Record, ParseError, Parser, ReadError};
 
 /// JSON parser.
 pub struct JsonParser;
@@ -16,15 +16,23 @@ impl JsonParser {
     }
 }
 
-pub struct JsonReader<R>(Lines<BufReader<R>>) where R: io::Read;
+pub struct JsonReader<R>(Lines<BufReader<R>>)
+where
+    R: io::Read;
 
-impl<R> JsonReader<R> where R: io::Read {
+impl<R> JsonReader<R>
+where
+    R: io::Read,
+{
     pub fn new(reader: R) -> Self {
         Self(BufReader::new(reader).lines())
     }
 }
 
-impl<R> Iterator for JsonReader<R> where R: io::Read {
+impl<R> Iterator for JsonReader<R>
+where
+    R: io::Read,
+{
     type Item = Result<String, ReadError>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -32,7 +40,10 @@ impl<R> Iterator for JsonReader<R> where R: io::Read {
     }
 }
 
-impl<R> Parser<R> for JsonParser where R: io::Read {
+impl<R> Parser<R> for JsonParser
+where
+    R: io::Read,
+{
     type Input = String;
 
     type Settings = ();
