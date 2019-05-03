@@ -6,9 +6,13 @@ use ::log::info;
 use ::rand::prelude::*;
 use ::serde_json::Value;
 
-use std::{collections::HashMap, marker::PhantomData, sync::mpsc::Sender, io};
+use std::{collections::HashMap, io, marker::PhantomData, sync::mpsc::Sender};
 
-use crate::{parse::Parser, storage::{Storage, StorageError}};
+use crate::{
+    parse::{Parser, record::Record},
+    storage::{Storage, StorageError},
+    compose::{compose_init_message, compose_push_record_message},
+};
 
 mod session;
 
@@ -32,7 +36,9 @@ struct WsMessage(String);
 
 /// A wrapper around the parser input.
 #[derive(Message)]
-pub struct InputMessage<I>(pub I) where I: Send;
+pub struct InputMessage<I>(pub I)
+where
+    I: Send;
 
 /// A message to stop other threads.
 pub struct StopAppMessage;
@@ -91,12 +97,17 @@ where
         }
     }
 
-    fn handle_input(&mut self, input: P::Input) -> Result<(), InternalError> {
-        let record = self.parser.parse(&input).map_err(|_| InternalError::Parse)?;
+    fn handle_input<'a>(&'a mut self, input: &'a P::Input) -> Result<Record<'a>, InternalError> {
+        let record = self
+            .parser
+            .parse(input)
+            .map_err(|_| InternalError::Parse)?;
 
         self.storage
-            .push_record(record)
-            .map_err(|e| InternalError::Storage(e))
+            .push_record(&record)
+            .map_err(|e| InternalError::Storage(e))?;
+
+        Ok(record)
     }
 }
 
@@ -111,6 +122,7 @@ where
         info!("Stopping...");
 
         // Close the IO thread.
+        // TODO error handling?
         self.stop_tx.send(StopAppMessage::new()).unwrap();
 
         System::current().stop();
@@ -133,7 +145,9 @@ where
         let id = self.rng.gen::<usize>();
         self.sessions.insert(id, msg.addr.clone());
 
-        // TODO send init message.
+	// Send init message.
+	let message = compose_init_message(&self.storage);
+	msg.addr.do_send(WsMessage(message.to_string()));
 
         id
     }
@@ -160,15 +174,28 @@ where
 {
     type Result = ();
 
-    fn handle(&mut self, msg: InputMessage<P::Input>, _: &mut Self::Context) {
+    fn handle(&mut self, msg: InputMessage<P::Input>, ctx: &mut Self::Context) {
         info!("Input received.");
 
-        // TODO error handling.
-        self.handle_input(msg.0).unwrap();
+        match self.handle_input(&msg.0) {
+            Err(_) => {
+                // TODO error message? error kind?
+                info!("An error occured.");
+
+                // TODO error handling?
+                self.stop_tx.send(StopAppMessage {}).unwrap();
+                ctx.stop();
+            }
+            Ok(record) => {
+                // Send update message.
+                let message = compose_push_record_message(&record);
+                self.broadcast_ws_message(&message);
+            }
+        }
     }
 }
 
-pub fn ws_route<R, P>(
+pub fn ws_handshake<R, P>(
     req: &HttpRequest<WsSessionState<R, P>>,
 ) -> Result<HttpResponse, actix_web::Error>
 where
