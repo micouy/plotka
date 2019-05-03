@@ -1,15 +1,19 @@
 [package]
-name = "plotka_core"
+name = "plotka"
 version = "0.1.0"
-authors = ["micouy <szpontaniczny@gmail.com>"]
+authors = ["micoauy <szpontaniczny@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 serde_json = "^1.0"
 serde = "^1.0"
 csv = "^1.0"
-pretty_assertions = "^0.5"
 actix = "^0.7"
 actix-web = "^0.7"
-log = "^0.4"
 rand = "^0.6"
+clap = "2.33.0"
+
+pretty_env_logger = "^0.3"
+log = "^0.4"
+pretty_assertions = "^0.5"
+color-backtrace = "^0.1"
