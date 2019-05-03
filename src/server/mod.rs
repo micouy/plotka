@@ -9,9 +9,9 @@ use ::serde_json::Value;
 use std::{collections::HashMap, io, marker::PhantomData, sync::mpsc::Sender};
 
 use crate::{
-    parse::{Parser, record::Record},
-    storage::{Storage, StorageError},
     compose::{compose_init_message, compose_push_record_message},
+    parse::{record::Record, Parser},
+    storage::{Storage, StorageError},
 };
 
 mod session;
@@ -97,11 +97,12 @@ where
         }
     }
 
-    fn handle_input<'a>(&'a mut self, input: &'a P::Input) -> Result<Record<'a>, InternalError> {
-        let record = self
-            .parser
-            .parse(input)
-            .map_err(|_| InternalError::Parse)?;
+    fn handle_input<'a>(
+        &'a mut self,
+        input: &'a P::Input,
+    ) -> Result<Record<'a>, InternalError> {
+        let record =
+            self.parser.parse(input).map_err(|_| InternalError::Parse)?;
 
         self.storage
             .push_record(&record)
@@ -145,9 +146,9 @@ where
         let id = self.rng.gen::<usize>();
         self.sessions.insert(id, msg.addr.clone());
 
-	// Send init message.
-	let message = compose_init_message(&self.storage);
-	msg.addr.do_send(WsMessage(message.to_string()));
+        // Send init message.
+        let message = compose_init_message(&self.storage);
+        msg.addr.do_send(WsMessage(message.to_string()));
 
         id
     }
