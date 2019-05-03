@@ -132,21 +132,21 @@ fn main() {
     let matches = Clapp::new("plotka")
         .version(env!("CARGO_PKG_VERSION"))
         .author("micouay povierjja <szpontaniczny@gmail.com>")
-        .help_message("print help info.")
-        .version_message("print version info.")
+        .help_message("Print help info.")
+        .version_message("Print version info.")
         .setting(ClappSettings::DisableHelpSubcommand)
         .setting(ClappSettings::ArgRequiredElseHelp)
         .setting(ClappSettings::VersionlessSubcommands)
         .arg(
             Arg::with_name("ip-address")
-                .help("set IP address used to bind the internal server.")
+                .help("Set IP address used to bind the internal server.")
                 .long("ip-address")
                 .short("a")
                 .value_name("ADDRESS"),
         )
         .arg(
             Arg::with_name("static-path")
-                .help("set IP address used to bind the internal server.")
+                .help("Set IP address used to bind the internal server.")
                 .long("static-path")
                 .short("s")
                 .value_name("DIR")
@@ -154,18 +154,18 @@ fn main() {
         )
         .subcommand(
             SubCommand::with_name("json")
-                .about("parse incoming data as JSON.")
-                .help_message("print help info.")
-                .version_message("print version info."),
+                .about("Parse incoming data as JSON.")
+                .help_message("Print help info.")
+                .version_message("Print version info."),
         )
         .subcommand(
             SubCommand::with_name("csv")
-                .about("parse incoming data as CSV.")
-                .help_message("print help info.")
-                .version_message("print version info.")
+                .about("Parse incoming data as CSV.")
+                .help_message("Print help info.")
+                .version_message("Print version info.")
                 .arg(
                     Arg::with_name("headers")
-                        .help("set CSV headers.")
+                        .help("Set CSV headers.")
                         .long("headers")
                         .short("h")
                         .value_name("HEADERS")
@@ -174,7 +174,7 @@ fn main() {
                 )
                 .arg(
                     Arg::with_name("delimiter")
-                        .help("set CSV delimiter.")
+                        .help("Set CSV delimiter.")
                         .long("delimiter")
                         .value_name("DELIMITER")
                         .short("d"),
@@ -212,7 +212,5 @@ fn main() {
         let reader_settings = (headers, delim);
 
         run_app(parser, reader_settings, static_path, ip_addr);
-    } else {
-        println!("No nima ustawień sory.");
     }
 }
