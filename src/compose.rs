@@ -16,7 +16,7 @@ pub fn compose_init_message(storage: &Storage) -> Value {
         json!({
              "method": "initStorage",
              "params": {
-                 "data": {},
+                 "data": [],
              }
         })
     } else {
