@@ -94,7 +94,7 @@ The messages follow the [JSON RPC](https://en.wikipedia.org/wiki/JSON-RPC) forma
 
 * `initStorage` message contains a list of JSON objects (records) in the `data` field.
 
-    ```json
+    ```text
     {
         "method": "initStorage",
         "params": {
@@ -109,7 +109,7 @@ The messages follow the [JSON RPC](https://en.wikipedia.org/wiki/JSON-RPC) forma
     ```
     
 * `pushRecord` message contains a single JSON object in the `record` field.
-    ```json
+    ```text
     {
     	"method": "pushRecord",
     	"params": {
