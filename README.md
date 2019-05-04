@@ -16,7 +16,7 @@ $ mysimulation | plotka --static-path . csv --headers mass velocity position
 ```
 
 ```text
-$ echo my-results.txt | plotka --static-path . json
+$ cat my-results.txt | plotka --static-path . json
 ```
 
 
