@@ -98,12 +98,12 @@ The messages follow the [JSON RPC](https://en.wikipedia.org/wiki/JSON-RPC) forma
     {
         "method": "initStorage",
         "params": {
-        	"data": [
-        	    { "x": 10, "y": 1.15 },
-        	    { "x": 11, "y": 1.16 },
-        	    { "x": 12, "y": 1.17 },
-        	    ...
-        	]
+            "data": [
+                { "x": 10, "y": 1.15 },
+                { "x": 11, "y": 1.16 },
+                { "x": 12, "y": 1.17 },
+                ...
+            ]
         }
     }
     ```
@@ -111,9 +111,9 @@ The messages follow the [JSON RPC](https://en.wikipedia.org/wiki/JSON-RPC) forma
 * `pushRecord` message contains a single JSON object in the `record` field.
     ```text
     {
-    	"method": "pushRecord",
-    	"params": {
-   	    "record": { "x": 13, "y": 1.18 }
+        "method": "pushRecord",
+        "params": {
+            "record": { "x": 13, "y": 1.18 }
         }
     }
     ```
